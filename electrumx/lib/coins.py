@@ -1085,6 +1085,24 @@ class Unitus(Coin):
         'electrumx.unituscurrency.com s t',
     ]
 
+# pkt.cash / github.com/pkt-cash/pktd
+class Pkt(AuxPowMixin, Coin):
+    NAME = "PKT"
+    SHORTNAME= "PKT"
+    NET = "mainnet"
+    XPUB_VERBYTES = bytes.fromhex("6b85c53f")
+    XPRV_VERBYTES = bytes.fromhex("6b863bed")
+    P2PKH_VERBYTE = bytes.fromhex("75")
+    P2SH_VERBYTES = (bytes.fromhex("38"),)
+    WIF_BYTE = bytes.fromhex("ef")
+    GENESIS_HASH = ('0bdc1712a46194e552cf417ab0439c2d'
+                    '4f456c35cf63a0a406964c6f93432d85')
+    DESERIALIZER = lib_tx.DeserializerPacketCryptSegWit
+    TX_COUNT = 3597588
+    TX_COUNT_HEIGHT = 488450
+    TX_PER_BLOCK = 10
+    RPC_PORT = 64765
+    
 
 # Source: namecoin.org
 class Namecoin(NameIndexMixin, AuxPowMixin, Coin):

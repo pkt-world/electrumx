@@ -104,7 +104,7 @@ class Env(EnvBase):
             import resource
             nofile_limit = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
             # We give the DB 250 files; allow ElectrumX 100 for itself
-            value = max(0, min(env_value, nofile_limit - 350))
+            value = max(20, min(env_value, nofile_limit - 350))
             if value < env_value:
                 self.logger.warning(
                     f'lowered maximum sessions from {env_value:,d} to '

@@ -12,3 +12,6 @@ docs/_build
 .vscode/
 .mypy_cache/
 .idea/
+
+db/
+env/
