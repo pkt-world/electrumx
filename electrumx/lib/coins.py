@@ -1102,7 +1102,11 @@ class Pkt(AuxPowMixin, Coin):
     TX_COUNT_HEIGHT = 488450
     TX_PER_BLOCK = 10
     RPC_PORT = 64765
-    
+
+    @classmethod
+    def max_fetch_blocks(cls, height):
+        return 100
+
 
 # Source: namecoin.org
 class Namecoin(NameIndexMixin, AuxPowMixin, Coin):
