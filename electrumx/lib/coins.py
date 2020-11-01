@@ -1102,6 +1102,13 @@ class Pkt(AuxPowMixin, Coin):
     TX_COUNT_HEIGHT = 488450
     TX_PER_BLOCK = 10
     RPC_PORT = 64765
+    PEER_DEFAULT_PORTS = {'t': '64766', 's': '64767'}
+    PEERS = [
+        'pkt-ex.cjdns.fr s',
+        'h.pkt-ex.cjdns.fr s',
+        'pkt-ex.gridfinity.com s',
+        'h.pkt-ex.gridfinity.com s',
+    ]
 
     @classmethod
     def max_fetch_blocks(cls, height):
