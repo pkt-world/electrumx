@@ -352,6 +352,43 @@ class DeserializerAuxPow(Deserializer):
 class DeserializerAuxPowSegWit(DeserializerSegWit, DeserializerAuxPow):
     pass
 
+class DeserializerPacketCryptSegWit(DeserializerSegWit):
+
+    def read_packetcrypt(self):
+        '''Reads and returns the PacketCryptProof'''
+
+        # PacketCrypt proofs consist of a sequence of entities
+        # Each entity contains [ type: varint, content: varbytes ]
+        # The PacketCrypt proof is terminated by an entity of type
+        # zero with a length of zero.
+
+        # We first calculate the size of the proof and then
+        # read it as bytes in the final step.
+        start = self.cursor
+
+        while True:
+            t = self._read_varint()
+            c = self._read_varbytes()
+            if t == 0 and len(c) == 0: break
+
+        end = self.cursor
+        self.cursor = start
+        return self._read_nbytes(end - start)
+
+    def read_header(self, static_header_size):
+        '''Return the AuxPow block header bytes'''
+
+        # We are going to calculate the block size then read it as bytes
+        start = self.cursor
+
+        self.cursor = start
+        self.cursor += static_header_size  # Block normal header
+        self.read_packetcrypt()
+        header_end = self.cursor
+
+        self.cursor = start
+        return self._read_nbytes(header_end - start)
+
 
 class DeserializerEquihash(Deserializer):
     def read_header(self, static_header_size):
