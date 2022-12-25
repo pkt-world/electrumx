@@ -14,15 +14,21 @@ import ssl
 import time
 from collections import Counter, defaultdict
 from ipaddress import IPv4Address, IPv6Address
+from typing import TYPE_CHECKING, Type
 
 import aiohttp
-from aiorpcx import (Event, Notification, RPCError, RPCSession, SOCKSError,
-                     SOCKSProxy, TaskGroup, TaskTimeout, connect_rs,
+from aiorpcx import (Event, Notification, RPCSession, SOCKSError,
+                     SOCKSProxy, TaskTimeout, connect_rs,
                      handler_invocation, ignore_after, sleep)
 from aiorpcx.jsonrpc import CodeMessageError
 
 from electrumx.lib.peer import Peer
-from electrumx.lib.util import class_logger, json_deserialize
+from electrumx.lib.util import class_logger, json_deserialize, OldTaskGroup
+
+if TYPE_CHECKING:
+    from electrumx.server.env import Env
+    from electrumx.server.db import DB
+
 
 PEER_GOOD, PEER_STALE, PEER_NEVER, PEER_BAD = range(4)
 STATUS_DESCS = ('good', 'stale', 'never', 'bad')
@@ -59,7 +65,7 @@ class PeerManager:
     Attempts to maintain a connection with up to 8 peers.
     Issues a 'peers.subscribe' RPC to them and tells them our data.
     '''
-    def __init__(self, env, db):
+    def __init__(self, env: 'Env', db: 'DB'):
         self.logger = class_logger(__name__, self.__class__.__name__)
         # Initialise the Peer class
         Peer.DEFAULT_PORTS = env.coin.PEER_DEFAULT_PORTS
@@ -78,7 +84,7 @@ class PeerManager:
         self.peers = set()
         self.permit_onion_peer_time = time.time()
         self.proxy = None
-        self.group = TaskGroup()
+        self.group = OldTaskGroup()
         self.recent_peer_adds = {}
         # refreshed
         self.blacklist = set()
@@ -294,6 +300,8 @@ class PeerManager:
                 self.logger.info(f'{peer_text} {e}')
 
         if is_good:
+            # Monotonic time would be better, but last_good and last_try are
+            # exported to admin RPC client.
             now = time.time()
             elapsed = now - peer.last_try
             self.logger.info(f'{peer_text} verified in {elapsed:.1f}s')
@@ -331,7 +339,7 @@ class PeerManager:
         # store IP address for peer
         if not peer.is_tor:
             address = session.remote_address()
-            if isinstance(address.host, (IPv4Address, IPv6Address)):
+            if address and isinstance(address.host, (IPv4Address, IPv6Address)):
                 peer.ip_addr = str(address.host)
 
         if self._is_blacklisted(peer):
@@ -362,7 +370,11 @@ class PeerManager:
 
         # server.version goes first
         message = 'server.version'
-        result = await session.send_request(message, self.server_version_args)
+        try:
+            result = await session.send_request(message, self.server_version_args)
+        except asyncio.CancelledError:
+            raise BadPeerError('terminated before server.version response')
+
         assert_good(message, result, list)
 
         # Protocol version 1.1 returns a pair with the version first
@@ -372,7 +384,7 @@ class PeerManager:
         peer.server_version = server_version
         peer.features['server_version'] = server_version
 
-        async with TaskGroup() as g:
+        async with OldTaskGroup() as g:
             await g.spawn(self._send_headers_subscribe(session))
             await g.spawn(self._send_server_features(session, peer))
             peers_task = await g.spawn(self._send_peers_subscribe
@@ -386,7 +398,10 @@ class PeerManager:
         if features:
             self.logger.info(f'registering ourself with {peer}')
             # We only care to wait for the response
-            await session.send_request('server.add_peer', [features])
+            try:
+                await session.send_request('server.add_peer', [features])
+            except asyncio.CancelledError:
+                raise BadPeerError('terminated before server.add_peer response')
 
     async def _send_headers_subscribe(self, session):
         message = 'blockchain.headers.subscribe'
